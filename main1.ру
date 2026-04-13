@@ -1,0 +1,75 @@
+import csv
+import re
+from pprint import pprint
+
+
+def normalize_name(contact):
+    """Приводим ФИО в формат lastname, firstname, surname"""
+    full_name = " ".join(contact[:3]).split()
+
+    lastname = full_name[0] if len(full_name) > 0 else ""
+    firstname = full_name[1] if len(full_name) > 1 else ""
+    surname = full_name[2] if len(full_name) > 2 else ""
+
+    return [lastname, firstname, surname] + contact[3:]
+
+
+def normalize_phone(phone):
+    """Приводим телефон к формату +7(999)999-99-99"""
+    pattern = re.compile(
+        r"(\+7|8)?\s*\(?(\d{3})\)?[\s-]*(\d{3})[\s-]*(\d{2})[\s-]*(\d{2})(?:\s*\(?(доб\.)\s*(\d+)\)?)?"
+    )
+
+    result = pattern.sub(r"+7(\2)\3-\4-\5 \6\7", phone)
+    return result.strip()
+
+
+def merge_duplicates(contacts):
+    """Объединяем дубли по Фамилии и Имени"""
+    result = {}
+
+    for contact in contacts:
+        key = (contact[0], contact[1])
+
+        if key not in result:
+            result[key] = contact
+        else:
+            existing = result[key]
+            merged = [
+                new if new else old
+                for old, new in zip(existing, contact)
+            ]
+            result[key] = merged
+
+    return list(result.values())
+
+
+# Читаем файл
+with open("phonebook_raw.csv", encoding="utf-8") as f:
+    rows = csv.reader(f, delimiter=",")
+    contacts_list = list(rows)
+
+# Обработка
+header = contacts_list[0]
+contacts = contacts_list[1:]
+
+# 1. Нормализация ФИО
+contacts = [normalize_name(contact) for contact in contacts]
+
+# 2. Нормализация телефонов
+for contact in contacts:
+    contact[5] = normalize_phone(contact[5])
+
+# 3. Объединение дублей
+contacts = merge_duplicates(contacts)
+
+# Добавляем заголовок обратно
+contacts_list = [header] + contacts
+
+# Сохраняем файл
+with open("phonebook.csv", "w", encoding="utf-8", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerows(contacts_list)
+
+print("✅ Обработка завершена")
+pprint(contacts_list)
